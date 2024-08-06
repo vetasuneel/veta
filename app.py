@@ -1,129 +1,75 @@
-from flask import Flask, render_template, request, redirect, url_for, session
-from flask_mysqldb import MySQL
-import MySQLdb.cursors
-import re
-# from pyngrok import ngrok
-# port_no = 5000
+from flask import Flask, request, jsonify, send_file, Response
+import json
+import os
+from flask_cors import CORS
 
-  
-  
 app = Flask(__name__)
-# ngrok.set_auth_token("2FfawXouJ0x3SjV6kv7B7bn4hjW_2unGskpEiAhXwk6JhS5gD")
-# public_url = ngrok.connect(port_no)
-  
-  
-app.secret_key = 'xyzsdfg'
-  
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = ''
-app.config['MYSQL_DB'] = 'product'
-  
-mysql = MySQL(app)
-# coin = 0
-
-  
 
 
+CORS(app)  # Enable CORS for all routes in the app
 
-@app.route('/login', methods =['GET', 'POST'])
-def login():
-    mesage = ''
-    if request.method == 'POST' and 'email' in request.form and 'password' in request.form:
-        email = request.form['email']
-        password = request.form['password']
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM product WHERE email = % s AND password = % s', (email, password, ))
-        user = cursor.fetchone()
-        if user:
-            session['loggedin'] = True
-            session['userid'] = user['userid']
-            session['name'] = user['name']
-            session['email'] = user['email']
-            # session['tokenn'] = user['tokenn']
+# Path to the JSON file where data will be saved
+json_file_path = "data.json"
 
-            mesage = 'Logged in successfully !'
-            return render_template('index_dashboard.html', mesage = mesage)
+# Function to load existing data from the JSON file
+def load_data():
+    if os.path.exists(json_file_path):
+        with open(json_file_path, 'r') as file:
+            return json.load(file)
+    return []
+
+# Function to save data to the JSON file
+def save_data(data):
+    with open(json_file_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+@app.route('/submit', methods=['POST'])
+def submit():
+    try:
+        if not request.is_json:
+            return jsonify({"message": "Invalid JSON"}), 400
+        
+        data = request.get_json()
+        
+        name = data.get('name')
+        phone_number = data.get('phone_number')
+        date = data.get('date')
+        time = data.get('time')
+
+        if not all([name, phone_number, date, time]):
+            return jsonify({"message": "Missing data!"}), 400
+
+        # Load existing data
+        existing_data = load_data()
+
+        # Add new data to the existing data
+        existing_data.append({
+            'name': name,
+            'phone_number': phone_number,
+            'date': date,
+            'time': time
+        })
+
+        # Save updated data back to the JSON file
+        save_data(existing_data)
+
+        return jsonify({"message": "Data saved successfully!"}), 201
+    except Exception as e:
+        app.logger.error(f"Error: {e}")
+        return jsonify({"message": str(e)}), 500
+
+@app.route('/data', methods=['GET'])
+def get_data():
+    try:
+        if os.path.exists(json_file_path):
+            with open(json_file_path, 'r') as file:
+                data = json.load(file)
+            return jsonify(data)
         else:
-            mesage = 'Please enter correct email / password !'
-    return render_template('login.html', mesage = mesage)
-  
-@app.route('/logout')
-def logout():
-    session.pop('loggedin', None)
-    session.pop('userid', None)
-    session.pop('email', None)
-    return redirect(url_for('login'))
-  
-@app.route('/register', methods =['GET', 'POST'])
-def register():
-    mesage = ''
-    if request.method == 'POST' and 'name' in request.form and 'password' in request.form and 'email' in request.form :
-        userName = request.form['name']
-        password = request.form['password']
-        email = request.form['email']
+            return jsonify({"message": "File not found"}), 404
+    except Exception as e:
+        app.logger.error(f"Error: {e}")
+        return jsonify({"message": str(e)}), 500
 
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM product WHERE email = % s', (email, ))
-        account = cursor.fetchone()
-        if account:
-            mesage = 'Account already exists !'
-        elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
-            mesage = 'Invalid email address !'
-        elif not userName or not password or not email:
-            mesage = 'Please fill out the form !'
-        else:
-            cursor.execute('INSERT INTO product VALUES (NULL, % s, % s, % s)', (userName, email, password))
-            mysql.connection.commit()
-            
-            mesage = 'You have successfully registered !'
-    elif request.method == 'POST':
-        mesage = 'Please fill out the form !'
-    return render_template('sign-up.html', mesage = mesage)
-
-@app.route('/c', methods=['POST', 'GET'])
-def c():
-    return render_template("index1.html")
-@app.route('/pro' , methods=['POST', 'GET'])
-def pro():
-    output = request.form.to_dict()
-
-    name = output["name"]
-    # temp = output["temp"]
-    # token = output["token"]
-
-
-
-    
-    # length_sent = len(name)
-    # word_count = len(name.split())
-    # space_count = name.count(' ')
-    # namecount = word_count + space_count
-
-    # model = "mamoon rasheed"
-    
-    # length_sent = len(model)
-    # word_count = len(model.split())
-    # space_count = model.count(' ')
-    # modelcount = word_count + space_count + namecount
-    # coin_minus = coin - modelcount
-
-
-    # cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    # sql = "UPDATE user SET tokenn = %s WHERE name = %s "
-    # data = (coin_minus,userName)
-    # cursor.execute(sql,data)
-    # mysql.connection.commit()
-
-    
-    
-    return render_template("index1.html",name = name)
-    
 if __name__ == "__main__":
-    #  print(public_url)
-# app.run(port=port_no)
-   app.run(debug=True,port=8080)
-
-
-
-
+    app.run(port=port_no)
