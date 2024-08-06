@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes in the app
 
 # Path to the JSON file where data will be saved
-json_file_path = "data.json"
+json_file_path = "/tmp/data.json"  # Use a writable directory
 
 # Function to load existing data from the JSON file
 def load_data():
